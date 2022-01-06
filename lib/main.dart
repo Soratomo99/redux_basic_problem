@@ -90,7 +90,13 @@ class BodyWidget extends StatelessWidget {
                 builder: (context, vm) {
                   return Column(
                     children: [
-                      const ContentWidget(),
+                      Cache<String>(
+                          value: "a",
+                          builder: (context, value) {
+                            return ContentWidget(
+                              status: value,
+                            );
+                          }),
                       StoreConnector<AppState, AppStateViewModel>(
                           distinct: true,
                           onWillChange: (previousViewModel, newViewModel) {
@@ -121,7 +127,9 @@ class BodyWidget extends StatelessWidget {
 }
 
 class ContentWidget extends StatelessWidget {
+  final String status;
   const ContentWidget({
+    required this.status,
     Key? key,
   }) : super(key: key);
 
@@ -130,15 +138,12 @@ class ContentWidget extends StatelessWidget {
     return StoreConnector<AppState, ValueModel>(
         rebuildOnChange: false,
         distinct: true,
-        onWillChange: (previousViewModel, newViewModel) {
-          // log(previousViewModel.hashCode.toString());
-          // log(newViewModel.hashCode.toString());
-          log("change text value");
-        },
+        onWillChange: (previousViewModel, newViewModel) {},
         converter: (Store<AppState> store) {
           return ValueModel.create(store: store);
         },
         builder: (context, viewModel) {
+          log("change text value");
           return Text(
             viewModel.value.toString(),
             style: const TextStyle(
@@ -146,5 +151,36 @@ class ContentWidget extends StatelessWidget {
             ),
           );
         });
+  }
+
+  // @override
+  // bool operator ==(Object other) =>
+  //     identical(this, other) || (other is ContentWidget);
+}
+
+class Cache<T> extends StatefulWidget {
+  const Cache({Key? key, required this.builder, required this.value})
+      : super(key: key);
+
+  final Widget Function(BuildContext context, T value) builder;
+  final T value;
+
+  @override
+  _CacheState<T> createState() => _CacheState<T>();
+}
+
+class _CacheState<T> extends State<Cache<T>> {
+  Widget? cache;
+  T? previousValue;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.value != previousValue) {
+      previousValue = widget.value;
+      cache = Builder(
+        builder: (context) => widget.builder(context, widget.value),
+      );
+    }
+    return cache!;
   }
 }
