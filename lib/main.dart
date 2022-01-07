@@ -1,14 +1,11 @@
 import 'dart:developer';
-import 'dart:html';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:redux/redux.dart';
-import 'package:redux_basic/store/action.dart';
 import 'package:redux_basic/store/app_state.dart';
 import 'package:redux_basic/store/epic.dart';
 import 'package:redux_basic/store/reducer.dart';
-import 'package:redux_basic/store/selector.dart';
 import 'package:redux_basic/store/view_model.dart';
 import 'package:redux_epics/redux_epics.dart';
 
@@ -42,23 +39,7 @@ class MainScreen extends StatelessWidget {
     return Scaffold(
       floatingActionButton: StoreConnector<AppState, ButtonViewModel>(
           distinct: true,
-          onWillChange: (view, newView) {
-            if (view.hashCode != newView.hashCode) {
-              log(view.hashCode.toString());
-              log(newView.hashCode.toString());
-              log("change button");
-              return;
-            }
-          },
           rebuildOnChange: true,
-          onDidChange: (view, newView) {
-            if (view.hashCode != newView.hashCode) {
-              log(view.hashCode.toString());
-              log(newView.hashCode.toString());
-              log("change button did change");
-              // return;
-            }
-          },
           converter: (store) => ButtonViewModel.create(store: store),
           builder: (context, viewModel) {
             return FloatingActionButton(
@@ -82,45 +63,41 @@ class BodyWidget extends StatelessWidget {
         distinct: true,
         converter: (Store<AppState> store) => store.state.status,
         builder: (context, vm) {
+          // using no parameters stateless widget, StoreConnector will not be rebuilt
+          log("Build StoreConnector BodyWidget");
           return Center(
-            child: StoreConnector<AppState, String>(
-                rebuildOnChange: true,
-                distinct: true,
-                converter: (Store<AppState> store) => store.state.status,
-                builder: (context, vm) {
-                  return Column(
-                    children: [
-                      Cache<String>(
-                          value: "a",
-                          builder: (context, value) {
-                            return ContentWidget(
-                              status: value,
-                            );
-                          }),
-                      StoreConnector<AppState, AppStateViewModel>(
-                          distinct: true,
-                          onWillChange: (previousViewModel, newViewModel) {
-                            log("change text status");
-                          },
-                          converter: (Store<AppState> store) =>
-                              AppStateViewModel.create(store: store),
-                          builder: (context, viewModel) {
-                            if (viewModel.status == "idle") {
-                              return const Text(
-                                "idle",
-                                style: TextStyle(
-                                  fontSize: 50,
-                                ),
-                              );
-                            }
-                            if (viewModel.status == "isLoading") {
-                              return const CircularProgressIndicator();
-                            }
-                            return const Text("");
-                          }),
-                    ],
-                  );
-                }),
+            child: Column(
+              children: [
+                ContentWidget(status: vm),
+                Cache<String>(
+                    value: vm,
+                    builder: (context, value) {
+                      log("BUILD CacheWidget");
+                      return ContentWidget(
+                        status: value,
+                      );
+                    }),
+                StoreConnector<AppState, AppStateViewModel>(
+                    rebuildOnChange: false,
+                    distinct: true,
+                    converter: (Store<AppState> store) =>
+                        AppStateViewModel.create(store: store),
+                    builder: (context, viewModel) {
+                      if (viewModel.status == "idle") {
+                        return const Text(
+                          "idle",
+                          style: TextStyle(
+                            fontSize: 50,
+                          ),
+                        );
+                      }
+                      if (viewModel.status == "isLoading") {
+                        return const CircularProgressIndicator();
+                      }
+                      return const Text("");
+                    }),
+              ],
+            ),
           );
         });
   }
@@ -143,7 +120,7 @@ class ContentWidget extends StatelessWidget {
           return ValueModel.create(store: store);
         },
         builder: (context, viewModel) {
-          log("change text value");
+          log("change text value and the status is $status");
           return Text(
             viewModel.value.toString(),
             style: const TextStyle(
@@ -153,9 +130,12 @@ class ContentWidget extends StatelessWidget {
         });
   }
 
+  // The member 'hashCode' is declared non-virtual in 'Widget'
+  // and can't be overridden in subclasses.
   // @override
   // bool operator ==(Object other) =>
   //     identical(this, other) || (other is ContentWidget);
+
 }
 
 class Cache<T> extends StatefulWidget {
@@ -175,7 +155,7 @@ class _CacheState<T> extends State<Cache<T>> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.value != previousValue) {
+    if (widget.value == "idle" && widget.value != previousValue) {
       previousValue = widget.value;
       cache = Builder(
         builder: (context) => widget.builder(context, widget.value),
